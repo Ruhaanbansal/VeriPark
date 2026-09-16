@@ -1,0 +1,32 @@
+system:
+  name: "VeriPark"
+  version: "1.0.0"
+  env: "development"
+
+vericore:
+  materiality:
+    epsilon: 0.000001
+    light_threshold: 0.10
+    standard_threshold: 0.40
+  routing:
+    tiers:
+      - "light"
+      - "standard"
+      - "deep"
+  live_regrounding:
+    occupancy_tolerance: 0.08
+    rate_tolerance: 5.0
+    timeout_seconds: 3.0
+  resummation:
+    enforce_clamping_invariant: true
+    allow_partial_credit: false
+  ledger:
+    file_path: "data/ledger/ledger.jsonl"
+    hash_algorithm: "sha256"
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
