@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380" width="100%" height="100%">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="50%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <linearGradient id="amberGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="buildingGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="buildingGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="roadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#78350f" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Sky Background -->
+  <rect width="600" height="380" rx="24" fill="url(#skyGrad)"/>
+
+  <!-- City Skyline Silhouette -->
+  <g opacity="0.35">
+    <rect x="40" y="80" width="55" height="180" rx="4" fill="url(#buildingGrad2)"/>
+    <rect x="110" y="50" width="70" height="210" rx="4" fill="url(#buildingGrad1)"/>
+    <rect x="195" y="100" width="60" height="160" rx="4" fill="url(#buildingGrad2)"/>
+    <rect x="360" y="60" width="65" height="200" rx="4" fill="url(#buildingGrad1)"/>
+    <rect x="440" y="90" width="55" height="170" rx="4" fill="url(#buildingGrad2)"/>
+    <rect x="510" y="70" width="60" height="190" rx="4" fill="url(#buildingGrad1)"/>
+    <!-- Windows -->
+    <circle cx="145" cy="80" r="3" fill="#fef08a"/>
+    <circle cx="145" cy="110" r="3" fill="#fef08a"/>
+    <circle cx="390" cy="90" r="3" fill="#fef08a"/>
+    <circle cx="390" cy="130" r="3" fill="#fef08a"/>
+  </g>
+
+  <!-- Smart Parking Structure Isometric Floor -->
+  <path d="M 60 270 L 300 200 L 540 270 L 300 340 Z" fill="#ffffff" filter="url(#cardShadow)"/>
+  <path d="M 60 270 L 300 340 L 300 355 L 60 285 Z" fill="#cbd5e1"/>
+  <path d="M 540 270 L 300 340 L 300 355 L 540 285 Z" fill="#94a3b8"/>
+
+  <!-- Parking Bays Markings -->
+  <g stroke="#d97706" stroke-width="2.5" stroke-dasharray="8 6" opacity="0.8">
+    <line x1="160" y1="240" x2="240" y2="290"/>
+    <line x1="220" y1="223" x2="300" y2="273"/>
+    <line x1="280" y1="207" x2="360" y2="257"/>
+    <line x1="340" y1="223" x2="420" y2="273"/>
+  </g>
+
+  <!-- Parked Cars (Stylized Isometric) -->
+  <!-- Car 1: Amber Luxury Sedan -->
+  <g transform="translate(195, 240)">
+    <polygon points="0,15 35,5 70,18 35,28" fill="#d97706"/>
+    <polygon points="12,12 35,4 58,13 35,20" fill="#fde68a"/>
+    <polygon points="0,15 35,28 35,35 0,22" fill="#b45309"/>
+    <polygon points="70,18 35,28 35,35 70,25" fill="#78350f"/>
+  </g>
+
+  <!-- Car 2: Emerald EV Hatchback -->
+  <g transform="translate(255, 222)">
+    <polygon points="0,15 35,5 70,18 35,28" fill="#059669"/>
+    <polygon points="12,12 35,4 58,13 35,20" fill="#a7f3d0"/>
+    <polygon points="0,15 35,28 35,35 0,22" fill="#047857"/>
+    <polygon points="70,18 35,28 35,35 70,25" fill="#064e3b"/>
+  </g>
+
+  <!-- Car 3: Slate Tech Crossover -->
+  <g transform="translate(315, 238)">
+    <polygon points="0,15 35,5 70,18 35,28" fill="#334155"/>
+    <polygon points="12,12 35,4 58,13 35,20" fill="#cbd5e1"/>
+    <polygon points="0,15 35,28 35,35 0,22" fill="#1e293b"/>
+    <polygon points="70,18 35,28 35,35 70,25" fill="#0f172a"/>
+  </g>
+
+  <!-- Central Open Spot with Pulsing Available Beacon -->
+  <g transform="translate(375, 255)">
+    <ellipse cx="25" cy="15" rx="35" ry="16" fill="#059669" fill-opacity="0.15"/>
+    <ellipse cx="25" cy="15" rx="20" ry="9" fill="#059669" fill-opacity="0.3"/>
+    <circle cx="25" cy="15" r="5" fill="#059669"/>
+    <!-- Floating 'AVAILABLE' marker -->
+    <line x1="25" y1="15" x2="25" y2="-20" stroke="#059669" stroke-width="2" stroke-dasharray="3 3"/>
+    <g transform="translate(25, -35)">
+      <rect x="-36" y="-12" width="72" height="24" rx="12" fill="#059669" filter="url(#cardShadow)"/>
+      <text x="0" y="4" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="bold">AVAILABLE</text>
+    </g>
+  </g>
+
+  <!-- VeriCore™ Verification Shield Hologram -->
+  <g transform="translate(300, 115)">
+    <!-- Glow ring -->
+    <circle cx="0" cy="0" r="48" fill="#d97706" fill-opacity="0.12"/>
+    <circle cx="0" cy="0" r="38" fill="#ffffff" filter="url(#cardShadow)"/>
+    <!-- Shield Icon -->
+    <path d="M -16 -12 L 0 -19 L 16 -12 C 16 7 0 20 0 20 C 0 20 -16 7 -16 -12 Z" fill="url(#amberGlow)"/>
+    <!-- Checkmark inside shield -->
+    <path d="M -6 0 L -1 5 L 7 -4" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Radiating data pulses -->
+    <line x1="-38" y1="-25" x2="-80" y2="-45" stroke="#d97706" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.7"/>
+    <line x1="38" y1="-25" x2="80" y2="-45" stroke="#059669" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.7"/>
+  </g>
+
+  <!-- Floating Proof Badge Left -->
+  <g transform="translate(130, 95)" filter="url(#cardShadow)">
+    <rect x="-65" y="-18" width="130" height="36" rx="18" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="-45" cy="0" r="8" fill="#059669"/>
+    <path d="M -48 0 L -46 2 L -42 -2" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="-30" y="4" fill="#1e293b" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Price Verified</text>
+  </g>
+
+  <!-- Floating Proof Badge Right -->
+  <g transform="translate(470, 95)" filter="url(#cardShadow)">
+    <rect x="-70" y="-18" width="140" height="36" rx="18" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="-50" cy="0" r="8" fill="#d97706"/>
+    <text x="-50" y="3" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="bold">₹</text>
+    <text x="-35" y="4" fill="#1e293b" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Self-Clamping</text>
+  </g>
+</svg>

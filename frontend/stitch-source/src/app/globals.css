@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand colors */
+  --color-navy: #1f3b57;
+  --color-navy-dark: #152a3e;
+  --color-navy-50: #eef2f5;
+  --color-teal: #2e7d6b;
+  --color-teal-dark: #235f51;
+  --color-teal-50: #e7f3f0;
+  --color-teal-100: #d3ece4;
+  --color-amber: #b5762a;
+  --color-amber-dark: #96611f;
+  --color-amber-50: #faf1e5;
+  --color-amber-100: #f3e2c9;
+  --color-danger: #b3453f;
+  --color-danger-50: #fbeeed;
+
+  /* Neutrals */
+  --color-charcoal: #2b2f36;
+  --color-slate: #63707e;
+  --color-slate-light: #8b96a3;
+  --color-border: #d8dee6;
+  --color-border-soft: #e7ebf0;
+  --color-bg-off: #f7f8fa;
+
+  /* Fonts */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
+
+  /* Radii */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  /* Shadows */
+  --shadow-soft: 0 1px 2px rgba(31, 59, 87, 0.04), 0 8px 24px rgba(31, 59, 87, 0.06);
+  --shadow-soft-lg: 0 4px 12px rgba(31, 59, 87, 0.05), 0 20px 48px rgba(31, 59, 87, 0.09);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-bg-off);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background-color: var(--color-teal-100);
+  color: var(--color-navy-dark);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+.shadow-soft-lg {
+  box-shadow: var(--shadow-soft-lg);
+}
+
+.font-serif-display {
+  font-family: var(--font-serif);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+/* Hide scrollbar for horizontal chip rows while keeping scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
