@@ -144,7 +144,17 @@ def get_decision_detail(decision_id: str):
         delta=resum["delta"],
         was_adjusted=resum["was_adjusted"],
         adjustment_reason=adjustment_reason,
-        explanation=explanation_items
+        explanation=explanation_items,
+        # Lot metadata
+        distance_meters=lot.get("distance_meters", 300),
+        walk_minutes=lot.get("walk_minutes", 4),
+        spots_available=lot.get("spots_available", 0),
+        total_spots=lot.get("total_spots", 0),
+        rating=lot.get("rating", 4.5),
+        cover_image_tone=lot.get("cover_image_tone", "amber"),
+        amenities=lot.get("amenities", []),
+        lot_type=lot.get("lot_type", "underground_multi_level"),
+        base_price=float(decision["pricing_result"].get("base_price", 0.0)),
     )
 
 # Screen 5: Verification Detail

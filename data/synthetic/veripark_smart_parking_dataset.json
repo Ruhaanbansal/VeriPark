@@ -216,17 +216,19 @@
         "camera_feed_active": true,
         "camera_feed_id": "CAM-RICHMOND-01",
         "camera_verified_available": 28,
-        "sensor_discrepancy_flag": false,
+        "sensor_discrepancy_flag": true,
+        "sensor_reported_available": 8,
+        "sensor_discrepancy_note": "Loop-detector reports 8 spaces free; overhead camera confirms 28 spaces free. Camera vision ground-truth overrides sensor.",
         "unverified_surcharge_flag": false,
         "unverified_surcharge_name": null,
         "unverified_surcharge_amount": 0.0
       },
       "vericore_scenario": {
-        "scenario_name": "Rain Weather Surge Validation",
-        "description": "Covered parking rain surge factor cross-checked against meteorological radar. Verified intact.",
-        "test_case_type": "Component 1 (Standard Tier Careful Check)",
-        "expected_adjustment": false,
-        "expected_clamped_delta": 0.0
+        "scenario_name": "Camera Vision Overrides Faulty Loop-Detector (Sensor Disparity)",
+        "description": "Induction-loop detector reports only 8 spots free, triggering a ₹15 conservative demand premium. VeriCore Component 2 issues a live query to the overhead vision stream, which confirms 28 spaces are available. Sensor discrepancy factor is flagged and removed, saving the driver ₹15.",
+        "test_case_type": "Component 2 (Camera Ground-Truth Override)",
+        "expected_adjustment": true,
+        "expected_clamped_delta": 15.0
       }
     },
     {

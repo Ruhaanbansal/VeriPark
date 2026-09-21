@@ -77,12 +77,25 @@ def reground_claim_live(
                 "Live re-check failed: weather radar reports clear conditions."
             )
 
-    elif "festival" in factor_id or "surcharge" in factor_id or "unverified" in factor_id or "emergency" in factor_id:
+    elif "festival" in factor_id or "unverified" in factor_id or "emergency" in factor_id:
         # Hallucinated or non-compliant surcharge: live municipal query confirms invalid
         return (
             False,
             "unsupported",
             "Live re-check failed: municipal civic registry and regulatory code confirm surcharge is unsupported or prohibited."
+        )
+
+    elif "sensor-discrepancy" in factor_id:
+        # Camera vs induction-loop discrepancy: camera vision ground-truth overrides loop detector
+        fresh_data = fetch_live_data_source(lot_id, "occupancy")
+        camera_spots = fresh_data.get("live_spots_available", 0)
+        lot_occ = fresh_data.get("live_occupancy_rate", 0.5)
+        return (
+            False,
+            "unsupported",
+            f"Live camera re-check failed: overhead vision stream confirmed {camera_spots} spaces free "
+            f"({int(lot_occ * 100)}% occupancy) — loop-detector over-reported congestion. "
+            f"Conservative premium removed."
         )
 
     else:

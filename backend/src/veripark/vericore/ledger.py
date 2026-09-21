@@ -65,6 +65,10 @@ class DecisionLedger:
         timestamp: Optional[str] = None
     ) -> Dict[str, Any]:
         """Appends a new verified decision record to the tamper-evident ledger."""
+        existing = self.get_record(decision_id)
+        if existing:
+            return existing
+
         if not timestamp:
             timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 

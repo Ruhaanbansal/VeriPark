@@ -97,7 +97,7 @@ export function AuditTrailClient({ decision }: { decision: Decision }) {
 
         {verifyMessage && (
           <div
-            className={`mt-3.5 rounded-xl border p-3 text-xs font-medium leading-relaxed ${
+            className={`mt-3.5 rounded-xl border p-3 text-xs font-medium leading-relaxed break-words break-all ${
               verifyState === "pass"
                 ? "border-[--color-verified-100] bg-[--color-verified-50] text-[--color-verified]"
                 : "border-red-200 bg-red-50 text-red-700"

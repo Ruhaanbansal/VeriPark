@@ -53,7 +53,7 @@ class AllocationPricingAgent:
                 "contribution": 15.0
             })
 
-        # 4. Special scenario factors for testing/demonstration
+        # 4. Unverified / hallucinated surcharge from the pricing model
         if signals.get("unverified_surcharge_flag"):
             surcharge_name = signals.get("unverified_surcharge_name", "Special zone surcharge")
             surcharge_amount = float(signals.get("unverified_surcharge_amount", 25.0))
@@ -62,16 +62,20 @@ class AllocationPricingAgent:
                 "description": surcharge_name,
                 "contribution": surcharge_amount
             })
-        elif lot["id"] == "lot-metro-hub":
+
+        # 5. Sensor disparity — camera vs loop-detector mismatch
+        if signals.get("sensor_discrepancy_flag"):
             factors.append({
-                "factor_id": "factor-festival-surcharge",
-                "description": "Special city street fair exclusion zone surcharge",
-                "contribution": 30.0
+                "factor_id": "factor-sensor-discrepancy",
+                "description": "Occupancy sensor vs camera vision count mismatch — applying conservative higher demand estimate",
+                "contribution": 15.0
             })
-        elif lot["id"] == "lot-commercial-tower":
+
+        # 6. EV premium for automated stacks
+        if lot.get("lot_type") == "automated_robotic_stack" and not signals.get("unverified_surcharge_flag"):
             factors.append({
                 "factor_id": "factor-ev-premium",
-                "description": "Premium spot priority lane reservation fee",
+                "description": "Priority EV charging bay reservation fee",
                 "contribution": 10.0
             })
 

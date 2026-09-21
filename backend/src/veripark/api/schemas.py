@@ -79,6 +79,16 @@ class DecisionDetailResponse(BaseModel):
     was_adjusted: bool
     adjustment_reason: Optional[str] = None
     explanation: List[ExplanationItemResponse]
+    # Lot metadata (carried through for frontend display)
+    distance_meters: int = 300
+    walk_minutes: int = 4
+    spots_available: int = 0
+    total_spots: int = 0
+    rating: float = 4.5
+    cover_image_tone: str = "amber"
+    amenities: List[str] = Field(default_factory=list)
+    lot_type: str = "underground_multi_level"
+    base_price: float = 0.0
 
 class FactorVerificationResponse(BaseModel):
     factor_id: str

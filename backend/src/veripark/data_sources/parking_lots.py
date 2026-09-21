@@ -41,7 +41,10 @@ def _init_lots():
                         "rating": item.get("rating", 4.6),
                         "cover_image_tone": item.get("cover_image_tone", "amber"),
                         "cover_asset": item.get("cover_asset", "/images/lots/lot-metro-hub.svg"),
-                        "live_signals": item.get("live_signals", {})
+                        "amenities": item.get("amenities", []),
+                        "operating_hours": item.get("operating_hours", "24/7"),
+                        "live_signals": item.get("live_signals", {}),
+                        "vericore_scenario": item.get("vericore_scenario", {})
                     }
         except Exception as e:
             print(f"Warning: could not load synthetic dataset from {DATASET_PATH}: {e}")
