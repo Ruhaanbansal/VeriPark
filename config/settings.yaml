@@ -4,6 +4,7 @@ system:
   env: "development"
 
 vericore:
+  verification_mode: "vericore" # mode in {vericore, none, uniform_light, uniform_deep}
   materiality:
     epsilon: 0.000001
     light_threshold: 0.10
@@ -17,12 +18,20 @@ vericore:
     occupancy_tolerance: 0.08
     rate_tolerance: 5.0
     timeout_seconds: 3.0
+    high_occupancy_threshold: 0.70
+    walking_distance_meters: 500
   resummation:
     enforce_clamping_invariant: true
     allow_partial_credit: false
   ledger:
     file_path: "data/ledger/ledger.jsonl"
     hash_algorithm: "sha256"
+  evaluation:
+    # assumed relative units, not measured
+    cost_units:
+      deep: 1.0
+      standard: 0.3
+      light: 0.05
 
 server:
   host: "127.0.0.1"
