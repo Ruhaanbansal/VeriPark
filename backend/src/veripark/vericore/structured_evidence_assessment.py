@@ -83,6 +83,14 @@ def evaluate_evidence_entailment(
                 False,
                 f"Event '{event}' is {dist}m away (>{event_radius_m}m radius)."
             )
+        # Content entailment check: detect fabricated event claims that contradict cached event
+        claim_lower = claim_text.lower()
+        event_words = [w.lower() for w in event.split() if len(w) > 3]
+        if any(k in claim_lower for k in ["marathon", "expo", "carnival", "parade"]) and not any(w in claim_lower for w in event_words):
+            return (
+                False,
+                f"Cached event '{event}' does not entail claimed event '{claim_text}'."
+            )
         return True, f"Entailment confirmed: cached event '{event}' is verified active."
 
     # --- factor-weather ---

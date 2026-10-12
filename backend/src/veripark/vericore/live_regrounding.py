@@ -160,6 +160,16 @@ def reground_claim_live(
         verified = fresh.get("event_schedule_verified", False)
 
         if is_active and verified and dist is not None and dist <= event_radius_m:
+            live_event_name = str(fresh.get("event_name", ""))
+            claim_lower = claim_text.lower()
+            event_words = [w.lower() for w in live_event_name.split() if len(w) > 3]
+            if any(k in claim_lower for k in ["marathon", "expo", "carnival", "parade"]) and not any(w in claim_lower for w in event_words):
+                return (
+                    False,
+                    "unsupported",
+                    f"Live re-check failed: live event '{live_event_name}' does not entail claimed event in text.",
+                    1,
+                )
             return (
                 True,
                 "live_reverified",
