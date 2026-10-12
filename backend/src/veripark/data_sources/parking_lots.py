@@ -70,57 +70,69 @@ def get_lot_by_id(lot_id: str) -> Optional[Dict[str, Any]]:
 
 def fetch_live_data_source(lot_id: str, claim_type: str) -> Dict[str, Any]:
     """Component 2 (Live Re-Grounding origin query):
-    Directly query originating sensors/APIs, bypassing cache.
+    Query originating sensors/APIs via live state, bypassing retrieval cache.
+
+    Reads snapshot signals first, then applies any LiveStateStore overrides
+    so that DriftInjector-injected changes are visible to live re-grounding
+    (C2) but NOT to cached evidence checks (C1 standard-tier).
+    Source unreachable: returns status='error'; caller must treat as unsupported.
     """
+    from veripark.data_sources.live_state import get_live_store
     lot = PARKING_LOTS_DB.get(lot_id)
     if not lot:
         return {"status": "error", "message": "Lot not found"}
-    
-    signals = lot["live_signals"]
+
+    snapshot_signals = lot["live_signals"]
+    store = get_live_store()
     timestamp = time.time()
-    
+
+    def _live(field: str):
+        """Return live-store override if present, else fall back to snapshot."""
+        override = store.get_field(lot_id, field)
+        return override if override is not None else snapshot_signals.get(field)
+
     if claim_type == "occupancy":
-        # Direct camera vision count re-poll
         return {
             "type": "occupancy",
-            "live_occupancy_rate": signals["occupancy_rate"],
-            "live_spots_available": signals["camera_verified_available"],
+            "live_occupancy_rate": _live("occupancy_rate"),
+            "live_spots_available": _live("camera_verified_available"),
             "total_spots": lot["total_spots"],
             "source": "live_overhead_edge_camera_stream_rtsp_01",
             "timestamp": timestamp,
-            "freshness_ms": 140
+            "freshness_ms": 140,
         }
     elif claim_type == "event":
         return {
             "type": "event",
-            "event_active": signals.get("nearby_event") is not None,
-            "event_name": signals.get("nearby_event"),
-            "event_distance_m": signals.get("event_distance_m"),
-            "event_schedule_verified": signals.get("event_schedule_verified", True),
+            "event_active": _live("nearby_event") is not None,
+            "event_name": _live("nearby_event"),
+            "event_distance_m": _live("event_distance_m"),
+            "event_schedule_verified": _live("event_schedule_verified"),
             "source": "city_events_api_v2_live",
             "timestamp": timestamp,
-            "freshness_ms": 320
+            "freshness_ms": 320,
         }
     elif claim_type == "weather":
         return {
             "type": "weather",
-            "weather_condition": signals["weather"],
+            "weather_condition": _live("weather"),
             "source": "meteorological_radar_live",
             "timestamp": timestamp,
-            "freshness_ms": 210
+            "freshness_ms": 210,
         }
     elif claim_type == "traffic":
         return {
             "type": "traffic",
-            "traffic_density": signals["traffic_density"],
+            "traffic_density": _live("traffic_density"),
             "source": "municipal_traffic_sensor_mesh",
             "timestamp": timestamp,
-            "freshness_ms": 180
+            "freshness_ms": 180,
         }
     else:
         return {
             "type": "generic",
             "valid": True,
             "source": "live_sensor_gateway",
-            "timestamp": timestamp
+            "timestamp": timestamp,
         }
+
