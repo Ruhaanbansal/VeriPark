@@ -138,3 +138,7 @@ class AdminStatsResponse(BaseModel):
     avg_adjustment_amount: float
     verification_cost_reduction_pct: float
     trend: List[TrendPoint]
+    is_sample_data: bool = False
+    checks_per_tier: Optional[Dict[str, int]] = None
+    live_queries_issued: Optional[int] = None
+    cost_units_assumed: Optional[Dict[str, float]] = None

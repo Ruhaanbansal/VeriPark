@@ -38,7 +38,7 @@
 - [🔬 Patentable Components & Intellectual Property](#-patentable-components--intellectual-property)
   - [Component 1: Decision-Materiality-Weighted Verification Routing](#component-1-decision-materiality-weighted-verification-routing)
   - [Component 2: Sensor-Discrepancy Live Re-Grounding](#component-2-sensor-discrepancy-live-re-grounding)
-  - [Component 3: Decomposed-Factor Arithmetic Clamping & Resummation](#component-3-decomposed-factor-arithmetic-clamping--resummation)
+  - [Component 3: Decomposed-Factor Arithmetic Resummation](#component-3-decomposed-factor-arithmetic-resummation)
   - [Component 4: Cryptographically Chained Decision-Evidence Ledger](#component-4-cryptographically-chained-decision-evidence-ledger)
 - [💻 Complete Technology Stack](#-complete-technology-stack)
 - [📱 User Experience & Frontend Engineering](#-user-experience--frontend-engineering)
@@ -46,9 +46,7 @@
   - [UI/UX Innovations & Hardened Touch Interfaces](#uiux-innovations--hardened-touch-interfaces)
 - [📈 Implementation Progress & Coding Milestones](#-implementation-progress--coding-milestones)
 - [🧠 Technical Competency & Innovation Analysis](#-technical-competency--innovation-analysis)
-- [📊 Preliminary Experimental Results & Validation](#-preliminary-experimental-results--validation)
-  - [Evaluation Test Matrix (Bengaluru Commercial & Transit Hubs)](#evaluation-test-matrix-bengaluru-commercial--transit-hubs)
-  - [Quantified Performance & Safety Invariant Validation](#quantified-performance--safety-invariant-validation)
+- [📊 Empirical Evaluation & Hardening Results](#-empirical-evaluation--hardening-results)
 - [🛠️ Challenges Encountered & Engineering Solutions](#-challenges-encountered--engineering-solutions)
 - [🗺️ Work Completed vs. Remaining Implementation Plan](#-work-completed-vs-remaining-implementation-plan)
 - [🚀 Future Roadmap & Industrialization](#-future-roadmap--industrialization)
@@ -67,7 +65,7 @@ Modern urban transit, ride-share platforms, and smart commercial facilities incr
 - Every natural language factor claim is decomposed into an individual numerical contribution.
 - The claim is scored by **decision materiality** (the exact proportion of the financial cost resting on that claim).
 - Compute depth is routed adaptively based on economic consequence rather than model perplexity.
-- **If any part of the explanation cannot be grounded in verifiable sensor or municipal data, the price itself is mechanically and automatically clamped down before the user ever sees it.**
+- **If any part of the explanation cannot be grounded in verifiable sensor or municipal data, the price itself is mechanically and automatically adjusted down via resummation before the user ever sees it.**
 - Every decision is recorded into an append-only, SHA-256 hash-chained cryptographic ledger.
 
 ---
@@ -90,7 +88,7 @@ Modern urban transit, ride-share platforms, and smart commercial facilities incr
                                    │
                       ★ VeriPark (VeriCore™) ★
                Achieves All Three Simultaneously via
-               Deterministic Mathematical Clamping
+               Deterministic Mathematical Resummation
 ```
 
 ### Architectural Comparison: Traditional vs Generic RAG vs VeriPark
@@ -102,7 +100,7 @@ Modern urban transit, ride-share platforms, and smart commercial facilities incr
 | **Verification Basis** | None | Model perplexity / token entropy | **Decision Materiality Sensitivity Metric** |
 | **Verification Depth** | Zero | Uniform / Static LLM prompt | **Adaptive 3-Tier Compute Routing** |
 | **Discrepancy Check** | None | None (trusts cached vector embeddings) | **Active Out-of-Band IoT Camera / API Probe** |
-| **Failure Behavior** | User overcharged blindly | Garbage-in, garbage-out text | **Deterministic Price Clamping ($\Delta \le 0$)** |
+| **Failure Behavior** | User overcharged blindly | Garbage-in, garbage-out text | **Deterministic Price Resummation ($\Delta \le 0$)** |
 | **Audit Mechanism** | Internal database logs | Ephemeral chat/completion logs | **SHA-256 Chained Evidence Ledger (`.jsonl`)** |
 | **Safety Invariant** | Unenforced | Prompt instructions (soft barrier) | **Strict Hard Invariant: $\text{FinalPrice} \le \text{ProposedPrice}$** |
 
@@ -439,38 +437,30 @@ flowchart LR
 
 ---
 
-## 📊 Preliminary Experimental Results & Validation
+## 📊 Empirical Evaluation & Hardening Results
 
-### Evaluation Test Matrix (Bengaluru Commercial & Transit Hubs)
+All quantitative metrics and verification numbers are generated through reproducible Monte Carlo experiments (1,000 scenarios per configuration across 3 random seeds) and documented in detail in [docs/HARDENING_REPORT.md](docs/HARDENING_REPORT.md).
 
-VeriPark was evaluated against 8 diverse parking facilities across the Bengaluru Metropolitan Area (BMA), testing 5 critical edge-case scenarios:
+### Prototype Scope & Operational Boundaries
+> [!NOTE]
+> **Prototype Implementation Scope:**
+> - **Agents:** Deterministic rule-based agent modules providing reproducible baseline pricing and explanation drafts.
+> - **Verifiers:** Structured evidence entailment rules implementing fail-closed registry checks.
+> - **Dataset:** Synthetic eight-lot benchmark dataset modeling diverse transit, commercial, hospital, and residential facilities across Bengaluru.
+> - **Live Data Sources:** Simulated out-of-band camera/loop sensors and municipal schedule APIs via thread-safe `LiveStateStore` and `DriftInjector`.
+> - **Standard-Tier Design:** Standard-tier claims are verified against cached context by architectural design; deep-tier claims are actively re-grounded against live originating data sources.
+> - **Roadmap Integration:** Production deployment incorporates LLM generation, deep NLI cross-encoders (via `Protocol` interfaces in `requirements-ml.txt`), and physical RTSP camera streams.
 
-```
-+---------------------------------------------------------------------------------------------------------+
-|                                    EXPERIMENTAL EVALUATION MATRIX                                       |
-+------------------------------------+--------------------------+-----------------+-----------------------+
-| Test Scenario                      | Facility Tested          | Proposed Price  | Clamped Result        |
-+------------------------------------+--------------------------+-----------------+-----------------------+
-| 1. Clean Multi-Factor Verification | Prestige Commercial Deck | ₹45.00          | ₹45.00 (0.00 adj)     |
-| 2. Hallucinated Event Surcharge    | MG Road Metro Deck       | ₹95.00          | ₹65.00 (-₹30.00 clamp)|
-| 3. Sensor Disparity (Ghost Surge)  | Manipal Hospital OPD     | ₹65.00          | ₹40.00 (-₹25.00 clamp)|
-| 4. Extreme Surge Municipal Clamp   | Indiranagar Smart Vault  | ₹90.00          | ₹70.00 (-₹20.00 clamp)|
-| 5. Baseline Grounded Evening Tariff| Town Hall Civic Deck     | ₹35.00          | ₹35.00 (0.00 adj)     |
-+------------------------------------+--------------------------+-----------------+-----------------------+
-```
+### Key Hardened Findings (Summary from docs/HARDENING_REPORT.md)
+| Metric | Baseline B1 (None) | Baseline B2 (Light) | Baseline B3 (Deep) | VeriCore (Adaptive) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phantom Factor Catch Rate** | 0.0% | 100.0% | 100.0% | **100.0%** |
+| **Monotonic Invariant Violations** | 0 | 0 | 0 | **0 ($P_{final} \le P_{prop}$ holds in all runs)** |
+| **Relative Verification Cost** | 0.206 units | 0.206 units | 4.125 units | **1.764 units (57.2% reduction vs Deep)** |
+| **Live Origin Queries Issued** | 0.0 | 0.0 | 3.88 / req | **0.75 / req (80.7% query reduction)** |
+| **Mean Absolute Price Error (0% drift)** | ₹34.98 | ₹1.88 | ₹1.88 | **₹1.88** |
 
-### Quantified Performance & Safety Invariant Validation
-
-```text
-[100.0%] Hallucination Interception Rate (50/50 test runs with phantom claims correctly clamped)
-[ 68.4%] Compute Latency Reduction via Adaptive Routing (vs. Exhaustive Verification)
-[  0.0%] Monotonic Safety Invariant Violations (P_final <= P_proposed strictly enforced across all tests)
-[100.0%] Tamper Detection Sensitivity (1-bit alteration in past ledger block fails validation immediately)
-```
-
-1. **100% Hallucination Interception:** In 100% of test cases where the pricing agent injected an ungrounded event or phantom congestion surcharge, VeriCore successfully identified the claim and clamped the price to the verified ceiling.
-2. **Sub-150ms Decision Overhead:** For standard requests, adaptive routing reduced compute latency by 68% compared to naive exhaustive verification by skipping Tier 3 deep probes for negligible materiality factors.
-3. **0 Monotonic Invariant Violations:** Across all synthetic iterations, the recorded final price was strictly less than or equal to the proposed price ($\text{Final} \le \text{Proposed}$).
+For exact reproducibility commands, per-lot before/after comparisons, and ablation tables across threshold settings, see [docs/HARDENING_REPORT.md](docs/HARDENING_REPORT.md).
 
 ---
 

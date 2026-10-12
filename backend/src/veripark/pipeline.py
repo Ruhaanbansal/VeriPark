@@ -58,7 +58,9 @@ class VeriParkPipeline:
         bound_claims = extract_and_bind_claims(draft_claims, pricing_result["factors"])
 
         # 4b: Materiality-Weighted Verification Cascade (Components 1 & 2)
-        verdicts = verify_claims_cascade(bound_claims, pricing_result, lot_context, self.config)
+        verdicts, verification_metrics = verify_claims_cascade(
+            bound_claims, pricing_result, lot_context, self.config
+        )
 
         # 4c: Decision Resummation / Clamping (Component 3)
         resummation = resum_decision(pricing_result, verdicts)
@@ -84,7 +86,8 @@ class VeriParkPipeline:
             "bound_claims": bound_claims,
             "verdicts": verdicts,
             "resummation": resummation,
-            "ledger_entry": ledger_entry
+            "ledger_entry": ledger_entry,
+            "verification_metrics": verification_metrics,
         }
 
     def search_and_evaluate_all(

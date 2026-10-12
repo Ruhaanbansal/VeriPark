@@ -1,0 +1,224 @@
+{
+  "lot-metro-hub": {
+    "lot_name": "MG Road Metro Transit Hub Deck",
+    "base_price": 100.0,
+    "proposed_price": 205.0,
+    "final_price": 175.0,
+    "delta": 30.0,
+    "was_adjusted": true,
+    "excluded_factors": [
+      "factor-unverified-lot-metro-hub"
+    ],
+    "claims": [
+      {
+        "factor_id": "factor-occupancy",
+        "materiality": 0.333333,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: cached occupancy was 88%."
+      },
+      {
+        "factor_id": "factor-event",
+        "materiality": 0.238095,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: cached event 'IPL Screening at Hub Plaza' is verified active."
+      },
+      {
+        "factor_id": "factor-weather",
+        "materiality": 0.142857,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: precipitation alert in cached context."
+      },
+      {
+        "factor_id": "factor-unverified-lot-metro-hub",
+        "materiality": 0.285714,
+        "tier": "standard",
+        "verdict": "unsupported",
+        "check_detail": "Careful check failed: No evidence rule for factor type 'factor-unverified-lot-metro-hub'; treating as unsupported per fail-closed policy."
+      }
+    ],
+    "wall_time_s": 0.0463
+  },
+  "lot-commercial-tower": {
+    "lot_name": "Prestige Commercial Plaza Deck",
+    "base_price": 80.0,
+    "proposed_price": 135.0,
+    "final_price": 135.0,
+    "delta": 0.0,
+    "was_adjusted": false,
+    "excluded_factors": [],
+    "claims": [
+      {
+        "factor_id": "factor-occupancy",
+        "materiality": 0.363636,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: cached occupancy was 81%."
+      },
+      {
+        "factor_id": "factor-event",
+        "materiality": 0.454545,
+        "tier": "deep",
+        "verdict": "live_reverified",
+        "check_detail": "Rechecked live just now: city events feed confirmed 'Tech Leaders Summit Day 2' active 350m away and schedule verified."
+      },
+      {
+        "factor_id": "factor-ev-premium",
+        "materiality": 0.181818,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: 20 EV charging spots in lot registry."
+      }
+    ],
+    "wall_time_s": 0.0695
+  },
+  "lot-civic-center": {
+    "lot_name": "Town Hall Civic Underground",
+    "base_price": 70.0,
+    "proposed_price": 70.0,
+    "final_price": 70.0,
+    "delta": 0.0,
+    "was_adjusted": false,
+    "excluded_factors": [],
+    "claims": [],
+    "wall_time_s": 0.042
+  },
+  "lot-express-deck": {
+    "lot_name": "Richmond Circle Automated Deck",
+    "base_price": 90.0,
+    "proposed_price": 130.0,
+    "final_price": 115.0,
+    "delta": 15.0,
+    "was_adjusted": true,
+    "excluded_factors": [
+      "factor-sensor-discrepancy"
+    ],
+    "claims": [
+      {
+        "factor_id": "factor-weather",
+        "materiality": 0.375,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: precipitation alert in cached context."
+      },
+      {
+        "factor_id": "factor-sensor-discrepancy",
+        "materiality": 0.375,
+        "tier": "standard",
+        "verdict": "unsupported",
+        "check_detail": "Careful check failed: Camera confirms 28 spaces free vs loop-detector's 8; conservative demand premium is unsupported."
+      },
+      {
+        "factor_id": "factor-ev-premium",
+        "materiality": 0.25,
+        "tier": "standard",
+        "verdict": "supported",
+        "check_detail": "Careful check: NLI entailment verified. Entailment confirmed: 6 EV charging spots in lot registry."
+      }
+    ],
+    "wall_time_s": 0.0322
+  },
+  "lot-indiranagar-100ft": {
+    "lot_name": "Indiranagar 100ft Smart Vault",
+    "base_price": 90.0,
+    "proposed_price": 170.0,
+    "final_price": 125.0,
+    "delta": 45.0,
+    "was_adjusted": true,
+    "excluded_factors": [
+      "factor-event",
+      "factor-unverified-lot-indiranagar-100ft"
+    ],
+    "claims": [
+      {
+        "factor_id": "factor-occupancy",
+        "materiality": 0.4375,
+        "tier": "deep",
+        "verdict": "live_reverified",
+        "check_detail": "Rechecked live just now: camera stream confirmed 14 spots remaining (91% occupancy)."
+      },
+      {
+        "factor_id": "factor-event",
+        "materiality": 0.3125,
+        "tier": "standard",
+        "verdict": "unsupported",
+        "check_detail": "Careful check failed: Event 'Weekend Live Music at Arena' in cache but schedule_verified=False; cannot entail without live confirmation."
+      },
+      {
+        "factor_id": "factor-unverified-lot-indiranagar-100ft",
+        "materiality": 0.25,
+        "tier": "standard",
+        "verdict": "unsupported",
+        "check_detail": "Careful check failed: No evidence rule for factor type 'factor-unverified-lot-indiranagar-100ft'; treating as unsupported per fail-closed policy."
+      }
+    ],
+    "wall_time_s": 0.0323
+  },
+  "lot-koramangala-nexus": {
+    "lot_name": "Koramangala Nexus Transit Plaza",
+    "base_price": 80.0,
+    "proposed_price": 80.0,
+    "final_price": 80.0,
+    "delta": 0.0,
+    "was_adjusted": false,
+    "excluded_factors": [],
+    "claims": [],
+    "wall_time_s": 0.0354
+  },
+  "lot-hospital-emergency": {
+    "lot_name": "Manipal Hospital Emergency & OPD Deck",
+    "base_price": 60.0,
+    "proposed_price": 120.0,
+    "final_price": 95.0,
+    "delta": 25.0,
+    "was_adjusted": true,
+    "excluded_factors": [
+      "factor-unverified-lot-hospital-emergency"
+    ],
+    "claims": [
+      {
+        "factor_id": "factor-occupancy",
+        "materiality": 0.583333,
+        "tier": "deep",
+        "verdict": "live_reverified",
+        "check_detail": "Rechecked live just now: camera stream confirmed 18 spots remaining (87% occupancy)."
+      },
+      {
+        "factor_id": "factor-unverified-lot-hospital-emergency",
+        "materiality": 0.416667,
+        "tier": "deep",
+        "verdict": "unsupported",
+        "check_detail": "Rechecked live just now: Live re-check: municipal civic registry and regulatory code confirm surcharge is unsupported or prohibited."
+      }
+    ],
+    "wall_time_s": 0.0272
+  },
+  "lot-whitefield-techpark": {
+    "lot_name": "ITPB International Tech Park Deck",
+    "base_price": 70.0,
+    "proposed_price": 130.0,
+    "final_price": 130.0,
+    "delta": 0.0,
+    "was_adjusted": false,
+    "excluded_factors": [],
+    "claims": [
+      {
+        "factor_id": "factor-occupancy",
+        "materiality": 0.583333,
+        "tier": "deep",
+        "verdict": "live_reverified",
+        "check_detail": "Rechecked live just now: camera stream confirmed 55 spots remaining (87% occupancy)."
+      },
+      {
+        "factor_id": "factor-event",
+        "materiality": 0.416667,
+        "tier": "deep",
+        "verdict": "live_reverified",
+        "check_detail": "Rechecked live just now: city events feed confirmed 'Annual Developer Keynote' active 200m away and schedule verified."
+      }
+    ],
+    "wall_time_s": 0.0432
+  }
+}
