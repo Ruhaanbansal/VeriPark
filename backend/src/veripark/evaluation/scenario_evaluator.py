@@ -1,7 +1,7 @@
 """Component 1-4 Empirical Evaluation Framework.
 
 Provides reproducible scenario generation, baseline comparisons, ablations,
-and metric calculation under controlled drift and phantom factor injections.
+and metric calculation under controlled drift and realistic phantom factor injections.
 """
 
 import time
@@ -12,13 +12,12 @@ from pathlib import Path
 
 from veripark.data_sources.parking_lots import PARKING_LOTS_DB, _init_lots
 from veripark.data_sources.live_state import LiveStateStore, DriftInjector, get_live_store
-from veripark.vericore.materiality_scoring import compute_claim_materiality
-from veripark.vericore.adaptive_routing import route_claim
 from veripark.vericore.decision_resummation import resum_decision
 from veripark.vericore.faithfulness_scoring import verify_claims_cascade
 from veripark.agents.allocation_pricing_agent import AllocationPricingAgent
 from veripark.agents.explanation_drafting_agent import ExplanationDraftingAgent
 from veripark.vericore.claim_extraction import extract_and_bind_claims
+from veripark.evaluation.ground_truth import is_factor_ground_truth_valid
 
 _init_lots()
 
@@ -34,6 +33,8 @@ METHODS = [
 
 DRIFT_LEVELS = [0.0, 0.10, 0.20, 0.30]
 
+PHANTOM_CLASSES = ["control", "registry_rejected", "content_false"]
+
 
 def get_method_config(method: str) -> Dict[str, Any]:
     """Builds pipeline config dictionary for a given method or ablation."""
@@ -45,9 +46,12 @@ def get_method_config(method: str) -> Dict[str, Any]:
                 "standard_threshold": 0.40,
                 "epsilon": 1e-6,
             },
+            "rules": {
+                "surge_threshold": 0.70,
+                "event_radius_m": 500,
+            },
             "live_regrounding": {
                 "occupancy_tolerance": 0.08,
-                "rate_tolerance": 5.0,
                 "timeout_seconds": 3.0,
             },
             "resummation": {
@@ -84,14 +88,110 @@ def get_method_config(method: str) -> Dict[str, Any]:
     return cfg
 
 
+def _generate_phantom_factor(
+    phantom_class: str,
+    lot: Dict[str, Any],
+    rng: random.Random
+) -> Tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
+    """Generate a realistic phantom factor and its corresponding drafted claim.
+
+    Classes:
+    (a) 'registry_rejected': unregistered factor type (design-property test, not content detection).
+    (b) 'content_false': registered factor type with demonstrably false content.
+    (c) 'control': no phantom injected.
+
+    Important: Phantom IDs must not contain words 'unverified', 'phantom', or 'fake'.
+    """
+    if phantom_class in ("control", "none"):
+        return None, None
+
+    signals = lot.get("live_signals", {})
+
+    if phantom_class == "registry_rejected":
+        # Class (a): Unregistered factor type.
+        # Tested by fail-closed verifier registry.
+        suffix = rng.randint(100, 999)
+        fid = f"factor-civic-access-{suffix}"
+        contrib = rng.choice([15.0, 20.0, 25.0, 30.0])
+        factor = {
+            "factor_id": fid,
+            "description": "Municipal low-emission zone civic staging surcharge",
+            "contribution": contrib,
+            "confidence": 0.60,
+        }
+        claim = {
+            "factor_id": fid,
+            "claim_text": "Municipal low-emission zone staging surcharge applied per municipal schedule.",
+        }
+        return factor, claim
+
+    elif phantom_class == "content_false":
+        # Class (b): Registered factor type, but claim is demonstrably false.
+        # Tested by content entailment verifier (B2 / cached NLI).
+        suffix = rng.randint(100, 999)
+        weather = str(signals.get("weather", ""))
+        occ = signals.get("occupancy_rate", 0.0)
+
+        # Pick a false factor dimension that contradicts this lot's actual state
+        if "Rain" not in weather:
+            # Weather is Clear / not rainy -> inject false rain factor
+            fid = f"factor-weather-monsoon-{suffix}"
+            contrib = 15.0
+            factor = {
+                "factor_id": fid,
+                "description": "Precipitation protection surge during active monsoon warning",
+                "contribution": contrib,
+                "confidence": 0.50,
+            }
+            claim = {
+                "factor_id": fid,
+                "claim_text": "Active heavy monsoon rain advisory in precinct warrants covered premium.",
+            }
+        elif occ < 0.70:
+            # Occupancy is below surge threshold -> inject false high occupancy surge
+            fid = f"factor-occupancy-demand-{suffix}"
+            contrib = 20.0
+            factor = {
+                "factor_id": fid,
+                "description": "Peak rush demand surge (occupancy exceeds 85%)",
+                "contribution": contrib,
+                "confidence": 0.50,
+            }
+            claim = {
+                "factor_id": fid,
+                "claim_text": "High occupancy surge applied: facility capacity utilization exceeds 85%.",
+            }
+        else:
+            # High occupancy and rainy -> inject false event factor
+            fid = f"factor-event-marathon-{suffix}"
+            contrib = 25.0
+            factor = {
+                "factor_id": fid,
+                "description": "Major international marathon expo surge within 200m",
+                "contribution": contrib,
+                "confidence": 0.50,
+            }
+            claim = {
+                "factor_id": fid,
+                "claim_text": "International athletics expo confirmed active 150m from facility entrance.",
+            }
+        return factor, claim
+
+    return None, None
+
+
 def run_scenario(
     lot_id: str,
     method: str,
     drift_level: float,
     rng: random.Random,
-    inject_phantom: bool = True
+    phantom_class: str = "control"
 ) -> Dict[str, Any]:
-    """Runs a single evaluation scenario under the specified method and drift."""
+    """Runs a single evaluation scenario under specified method, drift, and phantom class."""
+    cfg = get_method_config(method)
+    rules = cfg["vericore"]["rules"]
+    tolerances = cfg["vericore"]["live_regrounding"]
+
     lot = copy.deepcopy(PARKING_LOTS_DB[lot_id])
     lot_context = {"lot": lot, "duration_hours": 2}
     pricing_agent = AllocationPricingAgent()
@@ -101,46 +201,16 @@ def run_scenario(
     factors = list(pricing_result.get("factors", []))
     base_price = float(pricing_result.get("base_price", 0.0))
 
-    # Ground-truth validity tracking
-    ground_truth_valid = {}
-    is_drift_invalidated = {}
-
-    for f in factors:
-        fid = f["factor_id"]
-        # In base synthetic dataset, identify factors with ground-truth defects
-        if "unverified" in fid:
-            ground_truth_valid[fid] = False
-        elif fid == "factor-event" and not lot.get("live_signals", {}).get("event_schedule_verified", True):
-            ground_truth_valid[fid] = False
-        elif fid == "factor-occupancy":
-            cam = lot.get("live_signals", {}).get("camera_verified_available")
-            sensor = lot.get("live_signals", {}).get("sensor_reported_available")
-            if cam is not None and sensor is not None and cam > sensor:
-                ground_truth_valid[fid] = False
-            else:
-                ground_truth_valid[fid] = True
-        else:
-            ground_truth_valid[fid] = True
-        is_drift_invalidated[fid] = False
-
-    # (a) Inject phantom factor (known invalid)
+    # (a) Inject realistic phantom if requested
+    phantom_factor, phantom_claim = _generate_phantom_factor(phantom_class, lot, rng)
     phantom_fid = None
-    if inject_phantom:
-        phantom_contrib = rng.choice([15.0, 20.0, 25.0, 30.0])
-        phantom_fid = f"factor-unverified-phantom-{rng.randint(100, 999)}"
-        phantom_factor = {
-            "factor_id": phantom_fid,
-            "description": "Unverified emergency peak congestion surcharge",
-            "contribution": phantom_contrib,
-            "confidence": 0.50,
-        }
+    if phantom_factor:
+        phantom_fid = phantom_factor["factor_id"]
         factors.append(phantom_factor)
         pricing_result["factors"] = factors
         pricing_result["proposed_price"] = base_price + sum(f["contribution"] for f in factors)
-        ground_truth_valid[phantom_fid] = False
-        is_drift_invalidated[phantom_fid] = False
 
-    # (b) Apply live drift via DriftInjector
+    # (b) Apply live drift via DriftInjector to simulate world state divergence
     live_store = get_live_store()
     live_store.clear(lot_id)
     if drift_level > 0.0:
@@ -148,39 +218,65 @@ def run_scenario(
         injector = DriftInjector(fraction=drift_level, seed=drift_seed)
         injector.apply(live_store, lot_id, lot)
 
-        # Check if drift invalidated any previously valid factor
-        signals = lot.get("live_signals", {})
-        live_occ = live_store.get_field(lot_id, "occupancy_rate")
-        if live_occ is not None and "factor-occupancy" in ground_truth_valid:
-            if live_occ < 0.70 and ground_truth_valid["factor-occupancy"]:
-                ground_truth_valid["factor-occupancy"] = False
-                is_drift_invalidated["factor-occupancy"] = True
+    # Build effective live signals dictionary representing the world state after drift
+    snapshot_signals = lot.get("live_signals", {})
+    effective_signals = dict(snapshot_signals)
+    for field in [
+        "occupancy_rate",
+        "nearby_event",
+        "event_schedule_verified",
+        "event_distance_m",
+        "weather",
+        "camera_verified_available",
+        "sensor_reported_available",
+    ]:
+        override = live_store.get_field(lot_id, field)
+        if override is not None:
+            effective_signals[field] = override
 
-        live_evt = live_store.get_field(lot_id, "event_schedule_verified")
-        if live_evt is False and "factor-event" in ground_truth_valid:
-            if ground_truth_valid["factor-event"]:
-                ground_truth_valid["factor-event"] = False
-                is_drift_invalidated["factor-event"] = True
+    # Ground-truth validity determination for every factor
+    ground_truth_valid = {}
+    is_drift_invalidated = {}
 
-        live_wtr = live_store.get_field(lot_id, "weather")
-        if live_wtr == "Clear" and "factor-weather" in ground_truth_valid:
-            if ground_truth_valid["factor-weather"]:
-                ground_truth_valid["factor-weather"] = False
-                is_drift_invalidated["factor-weather"] = True
+    for f in factors:
+        fid = f["factor_id"]
+        is_ph = (fid == phantom_fid)
 
-    # Calculate Ground-Truth Price: base + sum of truly valid factors
+        # Validity prior to drift injection
+        pre_drift_valid = is_factor_ground_truth_valid(
+            factor=f,
+            lot=lot,
+            live_signals=snapshot_signals,
+            claimed_signals=snapshot_signals,
+            is_phantom=is_ph,
+            rules=rules,
+            tolerances=tolerances,
+        )
+
+        # Validity in the actual world state after drift
+        post_drift_valid = is_factor_ground_truth_valid(
+            factor=f,
+            lot=lot,
+            live_signals=effective_signals,
+            claimed_signals=snapshot_signals,
+            is_phantom=is_ph,
+            rules=rules,
+            tolerances=tolerances,
+        )
+
+        ground_truth_valid[fid] = post_drift_valid
+        is_drift_invalidated[fid] = (pre_drift_valid and not post_drift_valid)
+
+    # Calculate Ground-Truth Price: base + sum of truly valid factors in world state
     ground_truth_price = base_price + sum(
         f["contribution"] for f in factors if ground_truth_valid.get(f["factor_id"], False)
     )
 
     claims = drafting_agent.draft_explanation(pricing_result, lot_context)
-    if phantom_fid:
-        claims.append({
-            "claim_text": "Unverified emergency peak congestion surcharge applied.",
-            "factor_id": phantom_fid
-        })
+    if phantom_claim:
+        claims.append(phantom_claim)
+
     bound_claims = extract_and_bind_claims(claims, pricing_result["factors"])
-    cfg = get_method_config(method)
 
     start_time = time.perf_counter()
     verdicts, metrics = verify_claims_cascade(bound_claims, pricing_result, lot_context, config=cfg)
@@ -199,10 +295,12 @@ def run_scenario(
 
     excluded_factors = set(resum_result.get("excluded_factors", []))
 
-    # Metric: phantom factor caught
-    phantom_caught = 0
-    if phantom_fid:
-        phantom_caught = 1 if phantom_fid in excluded_factors else 0
+    # Metric: phantom factor caught per class
+    phantom_class_a_injected = 1 if phantom_class == "registry_rejected" else 0
+    phantom_class_a_caught = 1 if (phantom_class == "registry_rejected" and phantom_fid in excluded_factors) else 0
+
+    phantom_class_b_injected = 1 if phantom_class == "content_false" else 0
+    phantom_class_b_caught = 1 if (phantom_class == "content_false" and phantom_fid in excluded_factors) else 0
 
     # Metric: false exclusions (valid factors wrongly excluded)
     valid_factors = [f["factor_id"] for f in factors if ground_truth_valid.get(f["factor_id"], False)]
@@ -223,6 +321,7 @@ def run_scenario(
     return {
         "method": method,
         "drift_level": drift_level,
+        "phantom_class": phantom_class,
         "proposed_price": proposed_price,
         "final_price": final_price,
         "ground_truth_price": ground_truth_price,
@@ -231,8 +330,10 @@ def run_scenario(
         "delta": resum_result["delta"],
         "final_gt_proposed_violation": final_gt_proposed_violation,
         "final_gt_truth": final_gt_truth,
-        "phantom_injected": 1 if phantom_fid else 0,
-        "phantom_caught": phantom_caught,
+        "phantom_class_a_injected": phantom_class_a_injected,
+        "phantom_class_a_caught": phantom_class_a_caught,
+        "phantom_class_b_injected": phantom_class_b_injected,
+        "phantom_class_b_caught": phantom_class_b_caught,
         "valid_factors_count": len(valid_factors),
         "false_exclusions": false_exclusions,
         "drifted_factors_count": len(drifted_factors),
