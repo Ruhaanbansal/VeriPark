@@ -14,12 +14,13 @@ vericore:
       - "light"
       - "standard"
       - "deep"
+  rules:
+    surge_threshold: 0.70
+    event_radius_m: 500
   live_regrounding:
     occupancy_tolerance: 0.08
     rate_tolerance: 5.0
     timeout_seconds: 3.0
-    high_occupancy_threshold: 0.70
-    walking_distance_meters: 500
   resummation:
     enforce_clamping_invariant: true
     allow_partial_credit: false

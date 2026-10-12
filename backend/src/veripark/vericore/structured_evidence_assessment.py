@@ -24,7 +24,8 @@ def _is_known_factor(factor_id: str) -> bool:
 def evaluate_evidence_entailment(
     claim_text: str,
     factor_id: str,
-    retrieved_context: Dict[str, Any]
+    retrieved_context: Dict[str, Any],
+    rules: Dict[str, Any] | None = None,
 ) -> Tuple[bool, str]:
     """Lightweight evidence entailment evaluation against cached context.
 
@@ -35,6 +36,16 @@ def evaluate_evidence_entailment(
     Note: keyword matching on claim_text is intentionally NOT used here.
     All routing is done on factor_id only to prevent prompt-injection bypass.
     """
+    if rules is None:
+        try:
+            from veripark.config import load_settings
+            rules = load_settings().get("vericore", {}).get("rules", {})
+        except Exception:
+            rules = {}
+
+    surge_threshold = rules.get("surge_threshold", 0.70)
+    event_radius_m = rules.get("event_radius_m", 500)
+
     lot = retrieved_context.get("lot", {})
     signals = lot.get("live_signals", {})
 
@@ -49,9 +60,9 @@ def evaluate_evidence_entailment(
     # --- factor-occupancy ---
     if factor_id.startswith("factor-occupancy"):
         occ = signals.get("occupancy_rate", 0.0)
-        if occ >= 0.70:
+        if occ >= surge_threshold:
             return True, f"Entailment confirmed: cached occupancy was {int(occ * 100)}%."
-        return False, "Occupancy in cached context was below surge threshold (70%)."
+        return False, f"Occupancy in cached context was below surge threshold ({int(surge_threshold * 100)}%)."
 
     # --- factor-event ---
     if factor_id.startswith("factor-event"):
@@ -65,6 +76,12 @@ def evaluate_evidence_entailment(
                 False,
                 f"Event '{event}' in cache but schedule_verified=False; "
                 "cannot entail without live confirmation."
+            )
+        dist = signals.get("event_distance_m")
+        if dist is not None and dist > event_radius_m:
+            return (
+                False,
+                f"Event '{event}' is {dist}m away (>{event_radius_m}m radius)."
             )
         return True, f"Entailment confirmed: cached event '{event}' is verified active."
 

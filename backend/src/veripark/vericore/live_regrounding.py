@@ -23,6 +23,7 @@ def reground_claim_live(
     claim_text: str,
     retrieved_context: Dict[str, Any] | None = None,
     tolerances: Dict[str, float] | None = None,
+    rules: Dict[str, Any] | None = None,
 ) -> Tuple[bool, str, str, int]:
     """Issue a fresh live query to the originating data source.
 
@@ -33,6 +34,7 @@ def reground_claim_live(
         retrieved_context: Retrieval-time context dict (used to extract reference values
                            for tolerance comparison). If None, no comparison is done.
         tolerances:        Override tolerances dict. If None, caller should pass config values.
+        rules:             Domain rules dict (surge_threshold, event_radius_m). If None, loaded from config.
 
     Returns:
         (is_supported, verdict, check_detail, live_query_count)
@@ -43,6 +45,16 @@ def reground_claim_live(
         tolerances = {"occupancy_tolerance": 0.08, "rate_tolerance": 5.0}
 
     occ_tol = tolerances.get("occupancy_tolerance", 0.08)
+
+    if rules is None:
+        try:
+            from veripark.config import load_settings
+            rules = load_settings().get("vericore", {}).get("rules", {})
+        except Exception:
+            rules = {}
+
+    surge_threshold = rules.get("surge_threshold", 0.70)
+    event_radius_m = rules.get("event_radius_m", 500)
 
     lot_ctx = (retrieved_context or {}).get("lot", {})
     cached_signals = lot_ctx.get("live_signals", {})
@@ -75,7 +87,7 @@ def reground_claim_live(
                 1,
             )
         # Occupancy must still clear the surge threshold from the pricing rule
-        if live_occ >= 0.70:
+        if live_occ >= surge_threshold:
             return (
                 True,
                 "live_reverified",
@@ -87,7 +99,7 @@ def reground_claim_live(
             False,
             "unsupported",
             f"Live re-check: camera feed reported occupancy dropped to {int(live_occ*100)}%, "
-            "below surge threshold.",
+            f"below surge threshold ({int(surge_threshold * 100)}%).",
             1,
         )
 
@@ -104,10 +116,11 @@ def reground_claim_live(
                 0,
             )
         is_active = fresh.get("event_active", False)
-        dist = fresh.get("event_distance_m") or 9999
+        raw_dist = fresh.get("event_distance_m")
+        dist = float(raw_dist) if raw_dist is not None else None
         verified = fresh.get("event_schedule_verified", False)
 
-        if is_active and verified and dist <= 500:
+        if is_active and verified and dist is not None and dist <= event_radius_m:
             return (
                 True,
                 "live_reverified",
@@ -120,8 +133,10 @@ def reground_claim_live(
             reason_parts.append("event not found in live feed")
         if not verified:
             reason_parts.append("schedule not verified")
-        if dist > 500:
-            reason_parts.append(f"event is {dist}m away (>500m radius)")
+        if dist is None:
+            reason_parts.append("event distance unavailable")
+        elif dist > event_radius_m:
+            reason_parts.append(f"event is {dist}m away (>{event_radius_m}m radius)")
         return (
             False,
             "unsupported",

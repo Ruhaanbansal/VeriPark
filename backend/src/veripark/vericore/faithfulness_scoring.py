@@ -36,6 +36,7 @@ def verify_claims_cascade(
     std_thresh = mat_cfg.get("standard_threshold", 0.40)
     epsilon = mat_cfg.get("epsilon", 1e-6)
 
+    rules = cfg.get("vericore", {}).get("rules", {})
     lr_cfg = cfg.get("vericore", {}).get("live_regrounding", {})
     tolerances = {
         "occupancy_tolerance": lr_cfg.get("occupancy_tolerance", 0.08),
@@ -68,7 +69,7 @@ def verify_claims_cascade(
             # B2 Baseline: cached check on all claims
             tier = "light"
             checks_per_tier[tier] = checks_per_tier.get(tier, 0) + 1
-            is_supported, nli_detail = evaluate_evidence_entailment(claim_text, fid, lot_context)
+            is_supported, nli_detail = evaluate_evidence_entailment(claim_text, fid, lot_context, rules=rules)
             verdict = "supported" if is_supported else "unsupported"
             check_detail = f"B2 uniform light check: {nli_detail}"
 
@@ -77,7 +78,7 @@ def verify_claims_cascade(
             tier = "deep"
             checks_per_tier[tier] = checks_per_tier.get(tier, 0) + 1
             is_supported, verdict, check_detail, n_queries = reground_claim_live(
-                lot_id, fid, claim_text, retrieved_context=lot_context, tolerances=tolerances
+                lot_id, fid, claim_text, retrieved_context=lot_context, tolerances=tolerances, rules=rules
             )
             live_queries_issued += n_queries
             check_detail = f"B3 uniform deep live check: {check_detail}"
@@ -90,7 +91,7 @@ def verify_claims_cascade(
             if tier == "deep":
                 if mode == "vericore_no_live":
                     # Ablation: adaptive routing without live queries (cached only)
-                    is_supported, nli_detail = evaluate_evidence_entailment(claim_text, fid, lot_context)
+                    is_supported, nli_detail = evaluate_evidence_entailment(claim_text, fid, lot_context, rules=rules)
                     verdict = "supported" if is_supported else "unsupported"
                     check_detail = f"Ablation cached check: {nli_detail}"
                 else:
@@ -101,13 +102,14 @@ def verify_claims_cascade(
                         claim_text,
                         retrieved_context=lot_context,
                         tolerances=tolerances,
+                        rules=rules,
                     )
                     live_queries_issued += n_queries
                     check_detail = f"Rechecked live just now: {check_detail}" if not check_detail.startswith("Rechecked") else check_detail
 
             elif tier == "standard":
                 is_supported, nli_detail = evaluate_evidence_entailment(
-                    claim_text, fid, lot_context
+                    claim_text, fid, lot_context, rules=rules
                 )
                 if is_supported:
                     verdict = "supported"
@@ -118,7 +120,7 @@ def verify_claims_cascade(
 
             else:
                 is_supported, nli_detail = evaluate_evidence_entailment(
-                    claim_text, fid, lot_context
+                    claim_text, fid, lot_context, rules=rules
                 )
                 verdict = "supported" if is_supported else "unsupported"
                 check_detail = f"Quick check: {nli_detail}"
