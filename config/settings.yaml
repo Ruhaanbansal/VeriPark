@@ -19,7 +19,6 @@ vericore:
     event_radius_m: 500
   live_regrounding:
     occupancy_tolerance: 0.08
-    rate_tolerance: 5.0
     timeout_seconds: 3.0
   resummation:
     enforce_clamping_invariant: true

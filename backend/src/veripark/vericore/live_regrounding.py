@@ -6,15 +6,43 @@ retrieval-time snapshot and issues a live query to the originating data source
 verification. If the live measurement deviates beyond the configured tolerance,
 the claim is flagged 'unsupported' and excluded from resummation.
 
-Design notes:
-- All threshold values come from config (occupancy_tolerance, rate_tolerance,
-  timeout_seconds). No hardcoded numeric thresholds in branching logic.
-- Source unreachable: returns (False, 'unsupported', '...unavailable...'); never raises.
-- live_query_count is returned so callers can count queries per decision.
+Specification:
+- Occupancy: defined as supported iff BOTH |live - claimed| <= occupancy_tolerance
+  AND live >= surge_threshold.
+- Event: supported iff active, schedule-verified, and distance <= event_radius_m.
+- Weather: supported iff weather condition contains 'Rain'.
+- Sensor-discrepancy: reads live camera count and live loop-detector count;
+  unsupported only if camera > sensor beyond tolerance; otherwise supported.
+- EV-premium: verified via lot registry check, not a live sensor (0 live queries issued).
+- Unregistered / unknown types: unsupported with detail 'no live source registered for this factor type'
+  (0 live queries issued).
+- Timeouts & errors: fetch runs under timeout_seconds; on timeout or exception returns
+  (False, 'unsupported', 'live source unavailable/timeout', 1); never raises.
 """
 
+import concurrent.futures
 from typing import Dict, Any, Tuple
 from veripark.data_sources.parking_lots import fetch_live_data_source
+
+
+def _fetch_with_timeout(
+    lot_id: str,
+    source_type: str,
+    timeout_seconds: float
+) -> Tuple[Dict[str, Any] | None, bool]:
+    """Fetch live data source under a timeout constraint.
+
+    Returns (fresh_data_dict, success_boolean).
+    """
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(fetch_live_data_source, lot_id, source_type)
+            result = future.result(timeout=timeout_seconds)
+            if isinstance(result, dict) and result.get("status") == "error":
+                return None, False
+            return result, True
+    except Exception:
+        return None, False
 
 
 def reground_claim_live(
@@ -24,6 +52,7 @@ def reground_claim_live(
     retrieved_context: Dict[str, Any] | None = None,
     tolerances: Dict[str, float] | None = None,
     rules: Dict[str, Any] | None = None,
+    timeout_seconds: float | None = None,
 ) -> Tuple[bool, str, str, int]:
     """Issue a fresh live query to the originating data source.
 
@@ -33,16 +62,22 @@ def reground_claim_live(
         claim_text:        Original claim (retained for detail messages only).
         retrieved_context: Retrieval-time context dict (used to extract reference values
                            for tolerance comparison). If None, no comparison is done.
-        tolerances:        Override tolerances dict. If None, caller should pass config values.
-        rules:             Domain rules dict (surge_threshold, event_radius_m). If None, loaded from config.
+        tolerances:        Override tolerances dict.
+        rules:             Domain rules dict (surge_threshold, event_radius_m).
+        timeout_seconds:   Timeout in seconds for live queries.
 
     Returns:
         (is_supported, verdict, check_detail, live_query_count)
-        live_query_count is 1 on every successful source call, 0 if factor_id
-        is not a live-queryable type (handled by structured assessment instead).
+        live_query_count is 1 on every attempted source query (including timeouts),
+        0 if factor_id is not a live-queryable type (handled by registry check or fail-closed).
     """
     if tolerances is None:
-        tolerances = {"occupancy_tolerance": 0.08, "rate_tolerance": 5.0}
+        try:
+            from veripark.config import load_settings
+            lr_cfg = load_settings().get("vericore", {}).get("live_regrounding", {})
+            tolerances = {"occupancy_tolerance": lr_cfg.get("occupancy_tolerance", 0.08)}
+        except Exception:
+            tolerances = {"occupancy_tolerance": 0.08}
 
     occ_tol = tolerances.get("occupancy_tolerance", 0.08)
 
@@ -56,38 +91,35 @@ def reground_claim_live(
     surge_threshold = rules.get("surge_threshold", 0.70)
     event_radius_m = rules.get("event_radius_m", 500)
 
+    if timeout_seconds is None:
+        try:
+            from veripark.config import load_settings
+            timeout_seconds = load_settings().get("vericore", {}).get("live_regrounding", {}).get("timeout_seconds", 3.0)
+        except Exception:
+            timeout_seconds = 3.0
+
     lot_ctx = (retrieved_context or {}).get("lot", {})
     cached_signals = lot_ctx.get("live_signals", {})
 
     # --- Dispatch by factor_id prefix (no claim-text matching) ---
 
     if factor_id.startswith("factor-occupancy"):
-        try:
-            fresh = fetch_live_data_source(lot_id, "occupancy")
-            if fresh.get("status") == "error":
-                raise RuntimeError(fresh.get("message", "source error"))
-        except Exception as exc:
+        fresh, ok = _fetch_with_timeout(lot_id, "occupancy", timeout_seconds)
+        if not ok or fresh is None:
             return (
                 False,
                 "unsupported",
-                f"Live source unavailable (occupancy): {exc}",
-                0,
+                "live source unavailable/timeout",
+                1,
             )
+
         live_occ = fresh.get("live_occupancy_rate", 0.0)
         spots_left = fresh.get("live_spots_available", 0)
         cached_occ = cached_signals.get("occupancy_rate", live_occ)
 
-        if abs(live_occ - cached_occ) > occ_tol:
-            # Live reading diverges from cache beyond tolerance
-            return (
-                False,
-                "unsupported",
-                f"Live re-check: occupancy diverged from cache ({int(cached_occ*100)}% cached, "
-                f"{int(live_occ*100)}% live) beyond tolerance {int(occ_tol*100)}%.",
-                1,
-            )
-        # Occupancy must still clear the surge threshold from the pricing rule
-        if live_occ >= surge_threshold:
+        diff = abs(live_occ - cached_occ)
+        # Supported iff BOTH |live - claimed| <= occupancy_tolerance AND live >= surge_threshold
+        if diff <= occ_tol and live_occ >= surge_threshold:
             return (
                 True,
                 "live_reverified",
@@ -95,26 +127,33 @@ def reground_claim_live(
                 f"({int(live_occ*100)}% occupancy).",
                 1,
             )
-        return (
-            False,
-            "unsupported",
-            f"Live re-check: camera feed reported occupancy dropped to {int(live_occ*100)}%, "
-            f"below surge threshold ({int(surge_threshold * 100)}%).",
-            1,
-        )
-
-    elif factor_id.startswith("factor-event"):
-        try:
-            fresh = fetch_live_data_source(lot_id, "event")
-            if fresh.get("status") == "error":
-                raise RuntimeError(fresh.get("message", "source error"))
-        except Exception as exc:
+        elif diff > occ_tol:
             return (
                 False,
                 "unsupported",
-                f"Live source unavailable (event): {exc}",
-                0,
+                f"Live re-check: occupancy diverged from cache ({int(cached_occ*100)}% cached, "
+                f"{int(live_occ*100)}% live) beyond tolerance {int(occ_tol*100)}%.",
+                1,
             )
+        else:
+            return (
+                False,
+                "unsupported",
+                f"Live re-check: camera feed reported occupancy dropped to {int(live_occ*100)}%, "
+                f"below surge threshold ({int(surge_threshold * 100)}%).",
+                1,
+            )
+
+    elif factor_id.startswith("factor-event"):
+        fresh, ok = _fetch_with_timeout(lot_id, "event", timeout_seconds)
+        if not ok or fresh is None:
+            return (
+                False,
+                "unsupported",
+                "live source unavailable/timeout",
+                1,
+            )
+
         is_active = fresh.get("event_active", False)
         raw_dist = fresh.get("event_distance_m")
         dist = float(raw_dist) if raw_dist is not None else None
@@ -145,17 +184,15 @@ def reground_claim_live(
         )
 
     elif factor_id.startswith("factor-weather"):
-        try:
-            fresh = fetch_live_data_source(lot_id, "weather")
-            if fresh.get("status") == "error":
-                raise RuntimeError(fresh.get("message", "source error"))
-        except Exception as exc:
+        fresh, ok = _fetch_with_timeout(lot_id, "weather", timeout_seconds)
+        if not ok or fresh is None:
             return (
                 False,
                 "unsupported",
-                f"Live source unavailable (weather): {exc}",
-                0,
+                "live source unavailable/timeout",
+                1,
             )
+
         cond = fresh.get("weather_condition", "")
         if "Rain" in cond:
             return (
@@ -172,55 +209,73 @@ def reground_claim_live(
         )
 
     elif factor_id.startswith("factor-sensor-discrepancy"):
-        try:
-            fresh = fetch_live_data_source(lot_id, "occupancy")
-            if fresh.get("status") == "error":
-                raise RuntimeError(fresh.get("message", "source error"))
-        except Exception as exc:
+        fresh, ok = _fetch_with_timeout(lot_id, "occupancy", timeout_seconds)
+        if not ok or fresh is None:
             return (
                 False,
                 "unsupported",
-                f"Live source unavailable (occupancy/camera): {exc}",
-                0,
+                "live source unavailable/timeout",
+                1,
             )
-        camera_spots = fresh.get("live_spots_available", 0)
-        live_occ = fresh.get("live_occupancy_rate", 0.0)
-        return (
-            False,
-            "unsupported",
-            f"Live camera re-check: overhead vision stream confirmed {camera_spots} spaces free "
-            f"({int(live_occ * 100)}% occupancy) — loop-detector over-reported congestion. "
-            "Conservative demand premium removed.",
-            1,
-        )
 
-    elif "unverified" in factor_id or "festival" in factor_id or "emergency" in factor_id:
-        # Hallucinated or policy-prohibited surcharge: no live source to query.
-        # Municipal permit/regulation API call simulated; always returns False.
+        camera_count = fresh.get("camera_verified_available")
+        if camera_count is None:
+            camera_count = fresh.get("live_spots_available")
+        sensor_count = fresh.get("sensor_reported_available")
+
+        if camera_count is not None and sensor_count is not None:
+            sensor_tol = tolerances.get("sensor_tolerance", 0)
+            if camera_count > sensor_count + sensor_tol:
+                return (
+                    False,
+                    "unsupported",
+                    f"Live camera re-check: overhead vision stream confirmed {camera_count} spaces free "
+                    f"vs loop-detector's {sensor_count} — loop-detector over-reported congestion. "
+                    "Conservative demand premium removed.",
+                    1,
+                )
+            else:
+                return (
+                    True,
+                    "live_reverified",
+                    f"Live camera re-check: overhead vision stream confirmed {camera_count} spaces free "
+                    f"<= loop-detector's {sensor_count}. Discrepancy confirmed.",
+                    1,
+                )
         return (
             False,
             "unsupported",
-            "Live re-check: municipal civic registry and regulatory code confirm "
-            "surcharge is unsupported or prohibited.",
+            "Live sensor readings unavailable for discrepancy comparison.",
             1,
         )
 
     elif factor_id.startswith("factor-ev-premium"):
-        # EV premium is verified from lot registry data, not a live sensor feed.
-        # This should be handled at standard tier; deep call is a no-op pass-through.
+        # EV premium is verified from lot registry data, not a live sensor feed (0 queries)
+        ev_spots = lot_ctx.get("ev_charging_spots")
+        if ev_spots is None:
+            from veripark.data_sources.parking_lots import PARKING_LOTS_DB
+            ev_spots = PARKING_LOTS_DB.get(lot_id, {}).get("ev_charging_spots", 0)
+
+        if ev_spots and ev_spots > 0:
+            return (
+                True,
+                "live_reverified",
+                f"registry check, not a live sensor: confirmed {ev_spots} EV bays",
+                0,
+            )
         return (
-            True,
-            "live_reverified",
-            "EV bay designation confirmed in live lot registry.",
+            False,
+            "unsupported",
+            "registry check, not a live sensor: no EV bays recorded for lot",
             0,
         )
 
     else:
-        # Unknown factor type at deep tier: fail-closed per patent claim C2.
+        # unverified / festival / emergency IDs or unknown factor types:
+        # No live source registered for them. Return unsupported with 0 queries.
         return (
             False,
             "unsupported",
-            f"No live source registered for factor type '{factor_id}'; "
-            "treating as unsupported per fail-closed policy.",
+            "no live source registered for this factor type",
             0,
         )

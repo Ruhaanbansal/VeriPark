@@ -40,8 +40,8 @@ def verify_claims_cascade(
     lr_cfg = cfg.get("vericore", {}).get("live_regrounding", {})
     tolerances = {
         "occupancy_tolerance": lr_cfg.get("occupancy_tolerance", 0.08),
-        "rate_tolerance": lr_cfg.get("rate_tolerance", 5.0),
     }
+    timeout_seconds = lr_cfg.get("timeout_seconds", 3.0)
 
     proposed_price = pricing_result.get("proposed_price", 0.0)
     base_price = pricing_result.get("base_price", 0.0)
@@ -78,7 +78,13 @@ def verify_claims_cascade(
             tier = "deep"
             checks_per_tier[tier] = checks_per_tier.get(tier, 0) + 1
             is_supported, verdict, check_detail, n_queries = reground_claim_live(
-                lot_id, fid, claim_text, retrieved_context=lot_context, tolerances=tolerances, rules=rules
+                lot_id,
+                fid,
+                claim_text,
+                retrieved_context=lot_context,
+                tolerances=tolerances,
+                rules=rules,
+                timeout_seconds=timeout_seconds,
             )
             live_queries_issued += n_queries
             check_detail = f"B3 uniform deep live check: {check_detail}"
@@ -103,6 +109,7 @@ def verify_claims_cascade(
                         retrieved_context=lot_context,
                         tolerances=tolerances,
                         rules=rules,
+                        timeout_seconds=timeout_seconds,
                     )
                     live_queries_issued += n_queries
                     check_detail = f"Rechecked live just now: {check_detail}" if not check_detail.startswith("Rechecked") else check_detail

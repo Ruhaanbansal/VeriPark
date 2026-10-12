@@ -96,6 +96,8 @@ def fetch_live_data_source(lot_id: str, claim_type: str) -> Dict[str, Any]:
             "type": "occupancy",
             "live_occupancy_rate": _live("occupancy_rate"),
             "live_spots_available": _live("camera_verified_available"),
+            "camera_verified_available": _live("camera_verified_available"),
+            "sensor_reported_available": _live("sensor_reported_available"),
             "total_spots": lot["total_spots"],
             "source": "live_overhead_edge_camera_stream_rtsp_01",
             "timestamp": timestamp,
