@@ -1,3 +1,4 @@
+# Rewrites every hash. For local development only. Never run on a ledger whose integrity matters.
 import json
 from pathlib import Path
 import sys
@@ -25,7 +26,7 @@ prev_hash = GENESIS_HASH
 for i, rec in enumerate(valid_records):
     ev_payload = rec["evidence_payload"]
     ev_hash = compute_evidence_hash(ev_payload)
-    
+
     rec_price = float(rec["recorded_price"])
     block_hash = compute_block_hash(
         prev_hash,
@@ -34,12 +35,12 @@ for i, rec in enumerate(valid_records):
         rec_price,
         ev_hash
     )
-    
+
     rec["previous_hash"] = prev_hash
     rec["evidence_hash"] = ev_hash
     rec["block_hash"] = block_hash
     rec["sealed"] = True
-    
+
     fixed_lines.append(json.dumps(rec))
     prev_hash = block_hash
 

@@ -452,6 +452,7 @@ All quantitative metrics and verification numbers are generated through reproduc
 > - **Roadmap Integration:** Production deployment incorporates LLM generation, deep NLI cross-encoders (via `Protocol` interfaces in `requirements-ml.txt`), and physical RTSP camera streams.
 
 ### Key Hardened Findings (Summary from docs/HARDENING_REPORT.md)
+<!-- BEGIN_KEY_FINDINGS_TABLE -->
 | Metric | Baseline B1 (None) | Baseline B2 (Light) | Baseline B3 (Deep) | VeriCore (Adaptive) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phantom Factor Catch Rate** | 0.0% | 100.0% | 100.0% | **100.0%** |
@@ -459,6 +460,7 @@ All quantitative metrics and verification numbers are generated through reproduc
 | **Relative Verification Cost** | 0.206 units | 0.206 units | 4.125 units | **1.764 units (57.2% reduction vs Deep)** |
 | **Live Origin Queries Issued** | 0.0 | 0.0 | 3.88 / req | **0.75 / req (80.7% query reduction)** |
 | **Mean Absolute Price Error (0% drift)** | ₹34.98 | ₹1.88 | ₹1.88 | **₹1.88** |
+<!-- END_KEY_FINDINGS_TABLE -->
 
 For exact reproducibility commands, per-lot before/after comparisons, and ablation tables across threshold settings, see [docs/HARDENING_REPORT.md](docs/HARDENING_REPORT.md).
 

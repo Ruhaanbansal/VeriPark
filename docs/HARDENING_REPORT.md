@@ -1,8 +1,8 @@
 # VeriPark (VeriCore™) Hardening & Empirical Validation Report
 
-**Branch:** `hardening/vericore-v1`  
+**Branch:** `main` (hardened & merged; verification fixes on `fix/eval-and-verifier-v2`)  
 **Date:** October 12, 2026  
-**Status:** Completed & Validated (32/32 Pytest Tests Passing)  
+**Status:** Completed & Validated (39/39 Pytest Tests Passing)  
 
 ---
 
@@ -48,6 +48,16 @@
 
 ---
 
+## 1.1 Corrections & Flaw Rectifications (Evaluation & Verifier v2)
+
+1. **Single Source of Truth for Domain Rules (Step 1):** Added `vericore.rules` with `surge_threshold: 0.70` and `event_radius_m: 500` to `config/settings.yaml`. Read them dynamically in `structured_evidence_assessment.py` and `live_regrounding.py`. Removed hardcoded `0.70`, `500`, and `9999` literals from branching logic.
+2. **Live Re-grounding Clean-up (Step 2):** Enforced `timeout_seconds` using `concurrent.futures.ThreadPoolExecutor` (timeout/error returns `unsupported` without raising, counting 1 query attempt). Removed unused `rate_tolerance`. Sensor discrepancy branch now reads live camera count and loop detector count (`sensor_reported_available`), returning unsupported only when camera exceeds sensor beyond tolerance. EV bay verification now uses registry check (0 queries). Unregistered factor types fail closed with 0 queries. Occupancy is explicitly defined as supported iff BOTH `|live - claimed| <= tolerance` AND `live >= surge_threshold`.
+3. **Independent Ground Truth (Step 3):** Created `backend/src/veripark/evaluation/ground_truth.py`, decoupled from verifier code, evaluating factor validity against world state after drift. Removed the legacy branch that incorrectly conflated camera-vs-sensor checks with occupancy factors.
+4. **Realistic Phantom Factor Classes (Step 4):** Replaced single artificial phantom with three realistic seeded classes: (a) `registry_rejected` (unregistered factor type for fail-closed testing), (b) `content_false` (registered factor type with fabricated, contradictory claim text for content entailment testing), and (c) `control` (no phantom injected). Eliminated artificial marker words from IDs and report per-class catch rates separately.
+5. **B1 Accounting & Metric Labelling (Step 5):** Fixed verification_mode `none` to record 0 checks and 0 cost. Reported adjustment rate exclusively over the control class. Labelled all compute costs as "assumed relative units, not measured time".
+
+---
+
 ## 2. Before / After Comparison Across All 8 Lots
 
 Values produced by `scripts/capture_baseline.py` comparing [`docs/baseline_before.json`](docs/baseline_before.json) and [`docs/baseline_after.json`](docs/baseline_after.json):
@@ -74,7 +84,7 @@ Running the complete test suite:
 backend\.venv\Scripts\python.exe -m pytest -q
 ```
 
-**Result:** `32 passed, 4 warnings in 8.38s` (100% pass rate).
+**Result:** `39 passed, 3 warnings in 4.82s` (100% pass rate).
 
 ### Test Breakdown:
 - **Original 20 Tests:** All passing. (One assertion in `test_full_flow.py` was updated from a hardcoded `> 40.0%` fake metric to `> 30.0%` to test against the real ledger metric of 37.3%).
@@ -100,6 +110,7 @@ Produced by `scripts/run_evaluation.py --scenarios 1000 --seeds 42 101 2024` (3,
 
 ### Multi-Seed Mean and Range Summary
 
+<!-- BEGIN_EVALUATION_TABLE -->
 | Method | Drift Level | Phantom Catch Rate | Drift Catch Rate | Mean Abs Price Error (₹) | Invariant Violations ($P_{fin} > P_{prop}$) | Assumed Compute Cost | Live Queries Issued / Req |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **B1 (None)** | 0.00 | 0.000 [0.0, 0.0] | 0.000 [0.0, 0.0] | ₹34.98 [34.83, 35.17] | 0 [0, 0] | 0.206 [0.206, 0.206] | 0.00 [0.0, 0.0] |
@@ -130,6 +141,7 @@ Produced by `scripts/run_evaluation.py --scenarios 1000 --seeds 42 101 2024` (3,
 | **Ablation (0.20/0.50)** | 0.10 | 1.000 [1.0, 1.0] | 0.000 [0.0, 0.0] | ₹2.63 [2.52, 2.76] | 0 [0, 0] | 1.401 [1.398, 1.404] | 0.50 [0.50, 0.50] |
 | **Ablation (0.20/0.50)** | 0.20 | 1.000 [1.0, 1.0] | 0.000 [0.0, 0.0] | ₹3.86 [3.73, 3.96] | 0 [0, 0] | 1.400 [1.396, 1.403] | 0.50 [0.50, 0.50] |
 | **Ablation (0.20/0.50)** | 0.30 | 1.000 [1.0, 1.0] | 0.000 [0.0, 0.0] | ₹6.16 [6.11, 6.22] | 0 [0, 0] | 1.400 [1.396, 1.403] | 0.50 [0.50, 0.50] |
+<!-- END_EVALUATION_TABLE -->
 
 ---
 
@@ -139,7 +151,9 @@ Produced by `scripts/run_evaluation.py --scenarios 1000 --seeds 42 101 2024` (3,
 2. **Rule-Based Verifiers:** Entailment verification uses deterministic rule assessment over structured signals rather than deep cross-encoder neural language models. Extensibility interfaces (`EntailmentVerifier`, `ClaimJudge`) are provided for production ML integration.
 3. **Synthetic Benchmark Dataset:** The 8 parking facilities represent a calibrated synthetic model of Bengaluru municipal transit hubs, commercial decks, and hospitals.
 4. **Simulated Origin Sources:** Live sensor checks and out-of-band schedule APIs are simulated via the in-memory `LiveStateStore` and `DriftInjector`.
-5. **Standard-Tier Architectural Design:** In accordance with Component 1 patent claims, claims routed to standard tier (materiality between 0.10 and 0.40) are verified against the cached retrieval context; only high-materiality claims ($\ge 0.40$) trigger out-of-band live sensor queries.
+5. **Low Drift Catch at Default Thresholds:** By architectural design, standard-tier claims (materiality between 0.10 and 0.40) are verified against cached context; only high-materiality claims ($\ge 0.40$) trigger out-of-band live sensor queries. Under default thresholds, most drifted claims fall into standard or light tiers, resulting in low drift catch rate (~2-5%). The 0.05/0.30 ablation demonstrates the coverage/cost trade-off, catching ~26-29% of drift at higher compute and query cost.
+6. **Ledger Tamper Model Scope:** The ledger cryptographic chain detects payload modifications, genesis alterations, and tail truncation (via the `.head` sidecar file). It does not prevent an offline attacker with full write access from re-computing and replacing both `ledger.jsonl` and `ledger.head` simultaneously.
+7. **Legacy Ledger Historical Records:** The committed 352-block ledger predates schema v2; historical records verify under the legacy v1 formula, and dashboard metrics reflect historical decisions recorded in this file.
 
 ---
 
