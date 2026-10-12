@@ -1,7 +1,8 @@
 """Reproducible Empirical Evaluation Runner for VeriCore™ Hardening.
 
 Runs seeded Monte Carlo scenarios across baselines, VeriCore, and ablations
-at multiple sensor drift levels (0%, 10%, 20%, 30%).
+at multiple sensor drift levels (0%, 10%, 20%, 30%) with realistic phantom factor
+classes (registry-rejected, content-false, and control).
 Outputs per-seed JSON/CSV and multi-seed summary (mean and range).
 
 Usage:
@@ -17,6 +18,7 @@ import random
 import argparse
 from pathlib import Path
 from collections import defaultdict
+from typing import List, Dict, Any
 
 # Add backend/src to path
 sys.path.insert(0, os.path.abspath("backend/src"))
@@ -25,6 +27,7 @@ from veripark.data_sources.parking_lots import PARKING_LOTS_DB, _init_lots
 from veripark.evaluation.scenario_evaluator import (
     METHODS,
     DRIFT_LEVELS,
+    PHANTOM_CLASSES,
     run_scenario
 )
 
@@ -39,17 +42,23 @@ def evaluate_seed(seed: int, n_scenarios: int) -> List[Dict[str, Any]]:
     for method in METHODS:
         for drift in DRIFT_LEVELS:
             rng = random.Random(seed + int(drift * 1000))
-            
+
             # Scenario metrics accumulators
-            phantom_injected = 0
-            phantom_caught = 0
+            class_a_injected = 0
+            class_a_caught = 0
+            class_b_injected = 0
+            class_b_caught = 0
+
             valid_factors_total = 0
             false_exclusions_total = 0
             drifted_factors_total = 0
             drift_caught_total = 0
+
+            control_scenarios = 0
+            control_adjustments = 0
+            control_deltas = []
+
             price_errors = []
-            adjustments = []
-            deltas = []
             final_gt_truth_count = 0
             final_gt_prop_violations = 0
             checks_list = []
@@ -59,19 +68,26 @@ def evaluate_seed(seed: int, n_scenarios: int) -> List[Dict[str, Any]]:
 
             for i in range(n_scenarios):
                 lot_id = lot_ids[i % len(lot_ids)]
-                res = run_scenario(lot_id, method, drift, rng)
+                phantom_class = PHANTOM_CLASSES[i % len(PHANTOM_CLASSES)]
+                res = run_scenario(lot_id, method, drift, rng, phantom_class=phantom_class)
 
-                phantom_injected += res["phantom_injected"]
-                phantom_caught += res["phantom_caught"]
+                class_a_injected += res["phantom_class_a_injected"]
+                class_a_caught += res["phantom_class_a_caught"]
+                class_b_injected += res["phantom_class_b_injected"]
+                class_b_caught += res["phantom_class_b_caught"]
+
                 valid_factors_total += res["valid_factors_count"]
                 false_exclusions_total += res["false_exclusions"]
                 drifted_factors_total += res["drifted_factors_count"]
                 drift_caught_total += res["drift_caught"]
 
                 price_errors.append(res["price_error"])
-                adjustments.append(1 if res["was_adjusted"] else 0)
-                if res["was_adjusted"]:
-                    deltas.append(res["delta"])
+
+                if res["phantom_class"] == "control":
+                    control_scenarios += 1
+                    if res["was_adjusted"]:
+                        control_adjustments += 1
+                        control_deltas.append(res["delta"])
 
                 final_gt_truth_count += res["final_gt_truth"]
                 final_gt_prop_violations += res["final_gt_proposed_violation"]
@@ -86,14 +102,15 @@ def evaluate_seed(seed: int, n_scenarios: int) -> List[Dict[str, Any]]:
                 "method": method,
                 "drift_level": drift,
                 "scenarios": n_scenarios,
-                "phantom_catch_rate": round(phantom_caught / phantom_injected, 4) if phantom_injected else 0.0,
+                "catch_rate_class_a_registry_rejected": round(class_a_caught / class_a_injected, 4) if class_a_injected else 0.0,
+                "catch_rate_class_b_content_false": round(class_b_caught / class_b_injected, 4) if class_b_injected else 0.0,
                 "false_exclusion_rate": round(false_exclusions_total / valid_factors_total, 4) if valid_factors_total else 0.0,
                 "drift_catch_rate": round(drift_caught_total / drifted_factors_total, 4) if drifted_factors_total else 0.0,
                 "mean_abs_price_error": round(sum(price_errors) / len(price_errors), 2),
                 "count_final_gt_truth": final_gt_truth_count,
                 "final_gt_proposed_violations": final_gt_prop_violations,
-                "adjustment_rate": round(sum(adjustments) / len(adjustments), 4),
-                "mean_adjustment_mag": round(sum(deltas) / len(deltas), 2) if deltas else 0.0,
+                "adjustment_rate_control": round(control_adjustments / control_scenarios, 4) if control_scenarios else 0.0,
+                "mean_adjustment_mag_control": round(sum(control_deltas) / len(control_deltas), 2) if control_deltas else 0.0,
                 "mean_checks_run": round(sum(checks_list) / len(checks_list), 2),
                 "mean_live_queries": round(sum(live_queries_list) / len(live_queries_list), 2),
                 "mean_assumed_cost": round(sum(costs_list) / len(costs_list), 3),
@@ -116,7 +133,7 @@ def main():
     all_seed_results = []
 
     print(f"=== Starting VeriCore Evaluation ({args.scenarios} scenarios/setting across seeds {args.seeds}) ===")
-    
+
     start_eval = time.time()
     for seed in args.seeds:
         seed_start = time.time()
@@ -146,14 +163,15 @@ def main():
         grouped[key].append(row)
 
     metric_keys = [
-        "phantom_catch_rate",
+        "catch_rate_class_a_registry_rejected",
+        "catch_rate_class_b_content_false",
         "false_exclusion_rate",
         "drift_catch_rate",
         "mean_abs_price_error",
         "count_final_gt_truth",
         "final_gt_proposed_violations",
-        "adjustment_rate",
-        "mean_adjustment_mag",
+        "adjustment_rate_control",
+        "mean_adjustment_mag_control",
         "mean_checks_run",
         "mean_live_queries",
         "mean_assumed_cost",
@@ -193,14 +211,14 @@ def main():
     print(f"Total evaluation time: {round(time.time() - start_eval, 2)}s")
 
     # Print markdown table for quick review
-    print("\n" + "="*90)
-    print("EMPIRICAL EVALUATION SUMMARY (Multi-Seed Mean)")
-    print("="*90)
-    header = f"{'Method':<24} | {'Drift':<5} | {'Phantom Catch':<13} | {'Drift Catch':<11} | {'Price Err':<9} | {'Violations':<10} | {'Cost':<6} | {'Live Qs':<7}"
+    print("\n" + "="*110)
+    print("EMPIRICAL EVALUATION SUMMARY (Multi-Seed Mean; cost in assumed relative units, not measured time)")
+    print("="*110)
+    header = f"{'Method':<24} | {'Drift':<5} | {'Class A Catch':<13} | {'Class B Catch':<13} | {'Drift Catch':<11} | {'Price Err':<9} | {'Violations':<10} | {'Cost (units)':<12} | {'Live Qs':<7}"
     print(header)
     print("-" * len(header))
     for s in multiseed_summary:
-        print(f"{s['method']:<24} | {s['drift_level']:<5.2f} | {s['phantom_catch_rate_mean']:<13.3f} | {s['drift_catch_rate_mean']:<11.3f} | {s['mean_abs_price_error_mean']:<9.2f} | {s['final_gt_proposed_violations_mean']:<10} | {s['mean_assumed_cost_mean']:<6.3f} | {s['mean_live_queries_mean']:<7.2f}")
+        print(f"{s['method']:<24} | {s['drift_level']:<5.2f} | {s['catch_rate_class_a_registry_rejected_mean']:<13.3f} | {s['catch_rate_class_b_content_false_mean']:<13.3f} | {s['drift_catch_rate_mean']:<11.3f} | {s['mean_abs_price_error_mean']:<9.2f} | {s['final_gt_proposed_violations_mean']:<10} | {s['mean_assumed_cost_mean']:<12.3f} | {s['mean_live_queries_mean']:<7.2f}")
 
 
 if __name__ == "__main__":

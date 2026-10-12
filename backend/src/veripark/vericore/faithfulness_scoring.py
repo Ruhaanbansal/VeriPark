@@ -59,11 +59,10 @@ def verify_claims_cascade(
         materiality = compute_claim_materiality(contrib, proposed_price, base_price, epsilon)
 
         if mode == "none":
-            # B1 Baseline: no verification
+            # B1 Baseline: no verification performed; factor accepted without check
             tier = "light"
             verdict = "supported"
-            check_detail = "B1 baseline: no verification performed; factor accepted."
-            checks_per_tier[tier] = checks_per_tier.get(tier, 0) + 1
+            check_detail = "B1 baseline: no verification performed; factor accepted without check."
 
         elif mode == "uniform_light":
             # B2 Baseline: cached check on all claims
